@@ -1,0 +1,10 @@
+streamlit
+opencv-python-headless
+numpy
+pytesseract
+pdf2image
+python-docx
+deep-translator
+transformers
+sentence-transformers
+torch
