@@ -14,23 +14,23 @@ import re
 # --- SYSTEM CONFIGURATION ---
 st.set_page_config(page_title="Legal Document Analyzer", layout="wide", page_icon="⚖️")
 
-# --- ENGINE LOADER (Bypasses Task Registry Errors) ---
+# --- ENGINE LOADER (Registry-Agnostic Version) ---
 @st.cache_resource
 def load_all_engines():
     try:
-        # 1. Zero-Shot Classifier (Using whitelisted task)
+        # 1. Zero-Shot Classifier (Whitelist task: zero-shot-classification)
         classifier = pipeline("zero-shot-classification", model="facebook/bart-large-mnli")
         
         # 2. SBERT for LRI calculation
         semantic_model = SentenceTransformer('all-MiniLM-L6-v2')
         
-        # 3. MANUAL SUMMARIZER: Bypasses the "Unknown task summarization" error
-        # We load the model and tokenizer directly instead of using a task string
+        # 3. MANUAL SUMMARIZER: Completely avoids the "summarization" pipeline string
+        # This bypasses the registry check causing the KeyError
         sum_model_name = "facebook/bart-large-cnn"
         sum_tokenizer = AutoTokenizer.from_pretrained(sum_model_name)
         sum_model = AutoModelForSeq2SeqLM.from_pretrained(sum_model_name)
             
-        # 4. NER Model (Using whitelisted task)
+        # 4. NER Model (Whitelist task: ner)
         ner_model = pipeline("ner", model="dbmdz/bert-large-cased-finetuned-conll03-english", aggregation_strategy="simple")
         
         return classifier, semantic_model, sum_model, sum_tokenizer, ner_model
@@ -74,7 +74,7 @@ tab_photo, tab_text = st.tabs(["📷 Upload Document", "📝 Paste Text"])
 clean_text = ""
 
 with tab_photo:
-    uploaded_file = st.file_uploader("Upload Document Scan", type=["jpg", "png", "jpeg", "pdf", "docx"])
+    uploaded_file = st.file_uploader("Upload Document", type=["jpg", "png", "jpeg", "pdf", "docx"])
     
     if uploaded_file:
         file_extension = uploaded_file.name.split('.')[-1].lower()
@@ -86,19 +86,19 @@ with tab_photo:
                 st.success("Word Document loaded.")
 
         elif file_extension == 'pdf':
-            with st.spinner("Converting PDF for Intelligent OCR..."):
+            with st.spinner("Converting PDF..."):
                 uploaded_file.seek(0)
-                # Removed hardcoded poppler path for cloud compatibility
+                # Removed hardcoded C: path for cloud/Linux compatibility
                 images = convert_from_bytes(uploaded_file.read())
                 image = images[0] 
-                st.image(image, caption="PDF Page 1 Preview", use_container_width=True)
+                st.image(image, caption="PDF Preview", use_container_width=True)
                 img_array = np.array(image)
                 process_ocr = True
         
-        else: # Standard Image Handling
+        else: # Standard Image
             uploaded_file.seek(0)
             image = Image.open(uploaded_file)
-            st.image(image, caption="Uploaded Image Preview", use_container_width=True)
+            st.image(image, caption="Image Preview", use_container_width=True)
             img_array = np.array(image)
             process_ocr = True
 
@@ -109,12 +109,12 @@ with tab_photo:
                 clean_text = pytesseract.image_to_string(thresh)
 
 with tab_text:
-    user_text = st.text_area("Paste Legal Content for Audit:", height=300)
+    user_text = st.text_area("Paste Legal Content:", height=300)
     if user_text: 
         clean_text = user_text
 
 # ==========================================
-# ANALYSIS ENGINE (Manual Inference)
+# ANALYSIS ENGINE
 # ==========================================
 if clean_text:
     with st.spinner("Analyzing Legal Context..."):
@@ -125,7 +125,7 @@ if clean_text:
             translator = GoogleTranslator(source='auto', target='en')
             english_text = " ".join([translator.translate(c) for c in chunks])
             
-            # 2. DOC TYPE & LRI [cite: 70, 85, 159, 171, 311, 382]
+            # 2. DOC TYPE & LRI
             universal_labels = [
                 "Sale Deed", "Lease Deed", "Mortgage Deed", "Power of Attorney", "Affidavit", 
                 "Indemnity Agreement", "LLP Agreement", "Partnership Deed", "Will and Testament",
@@ -163,25 +163,24 @@ if clean_text:
                 st.info(f"**Document Type:** {doc_type}")
             with colB:
                 st.subheader("📝 Executive Summary")
-                # MANUAL INFERENCE: Bypasses the summarization pipeline task registry error
+                # MANUAL INFERENCE (No 'summarization' string used here)
                 inputs = sum_tokenizer([english_text[:2000]], max_length=1024, return_tensors="pt", truncation=True)
                 summary_ids = sum_model.generate(inputs["input_ids"], num_beams=4, max_length=150, min_length=50, early_stopping=True)
                 raw_summary = sum_tokenizer.decode(summary_ids[0], skip_special_tokens=True)
                 st.markdown(highlight_xai(raw_summary), unsafe_allow_html=True)
 
-            # 3. DYNAMIC KEY CLAUSES [cite: 172, 329, 392]
+            # 3. DYNAMIC KEY CLAUSES
             st.write("---")
             st.subheader(f"📌 Key Clauses Identification: {doc_type}")
             
-            # Use universal pillars if doc_type is not specialized [cite: 128, 248]
+            # Universal fallback for demonstration
             universal_pillars = {
                 "Effective Date": "the specific date when this agreement or letter becomes active",
                 "Primary Parties": "the full names and identities of the individuals or entities involved",
                 "Core Obligation": "the main task duty or action that must be performed",
                 "Governing Jurisdiction": "the legal location or state laws that govern this document"
             }
-
-            # For brevity, this is the logic. You can add your specific 'all_clause_configs' dictionary here
+            
             current_clause_map = universal_pillars 
             sentences = [s.strip() for s in english_text.split('.') if len(s.strip()) > 30]
             
@@ -200,7 +199,7 @@ if clean_text:
                     else:
                         st.write(f"No high-confidence {label} detected.")
 
-            # 4. NAMED ENTITIES [cite: 174, 214, 230, 274, 325, 394]
+            # 4. NAMED ENTITIES
             st.write("---")
             st.subheader("🔍 Named Entities")
             raw_entities = ner_model(english_text[:2000])
