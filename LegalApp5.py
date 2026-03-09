@@ -15,7 +15,6 @@ import re
 st.set_page_config(page_title="Legal Document Analyzer", layout="wide", page_icon="⚖️")
 # pytesseract.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
 
-@st.cache_resource
 def load_all_engines():
     try:
         # Zero-shot classification engine [cite: 170, 212]
@@ -426,6 +425,7 @@ if clean_text:
         except Exception as e:
 
             st.error(f"Analysis failed: {e}")
+
 
 
 
