@@ -15,24 +15,23 @@ import re
 st.set_page_config(page_title="Legal Document Analyzer", layout="wide", page_icon="⚖️")
 # pytesseract.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
 
-# --- LOAD ADVANCED AI ENGINES ---
 @st.cache_resource
 def load_all_engines():
     try:
-        # Zero-Shot Classification is stable
+        # Zero-shot classification engine [cite: 170, 212]
         classifier = pipeline("zero-shot-classification", model="facebook/bart-large-mnli")
         
-        # SBERT for LRI calculation
+        # Semantic SBERT model for LRI math [cite: 171, 213]
         semantic_model = SentenceTransformer('all-MiniLM-L6-v2')
         
-        # FIXED: Use text-generation for summarization if 'summarization' task is hidden
+        # FIXED: Try-except fallback for the summarization task 
         try:
             summarizer = pipeline("summarization", model="facebook/bart-large-cnn")
-        except KeyError:
-            # Fallback to text-generation which handles BART models in newer versions
+        except:
+            # Fallback to text-generation for newer library versions
             summarizer = pipeline("text-generation", model="facebook/bart-large-cnn")
             
-        # NER model is stable
+        # BERT-Large for Named Entity Recognition [cite: 174, 214]
         ner_model = pipeline("ner", model="dbmdz/bert-large-cased-finetuned-conll03-english", aggregation_strategy="simple")
         
         return classifier, semantic_model, summarizer, ner_model
@@ -427,6 +426,7 @@ if clean_text:
         except Exception as e:
 
             st.error(f"Analysis failed: {e}")
+
 
 
 
