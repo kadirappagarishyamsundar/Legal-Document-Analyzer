@@ -14,7 +14,7 @@ import re
 # --- SYSTEM CONFIGURATION ---
 st.set_page_config(page_title="Legal Document Analyzer", layout="wide", page_icon="⚖️")
 # pytesseract.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
-from transformers import AutoTokenizer, AutoModelForSeq2SeqLM, pipeline
+#from transformers import AutoTokenizer, AutoModelForSeq2SeqLM, pipeline
 
 @st.cache_resource
 def load_all_engines():
@@ -427,6 +427,7 @@ if clean_text:
         except Exception as e:
 
             st.error(f"Analysis failed: {e}")
+
 
 
 
