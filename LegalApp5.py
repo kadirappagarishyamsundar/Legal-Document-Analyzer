@@ -13,7 +13,7 @@ import re
 
 # --- SYSTEM CONFIGURATION ---
 st.set_page_config(page_title="Legal Document Analyzer", layout="wide", page_icon="⚖️")
-pytesseract.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
+# pytesseract.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
 
 # --- LOAD ADVANCED AI ENGINES ---
 @st.cache_resource
@@ -411,4 +411,5 @@ if clean_text:
                         st.write(f"🔹 **{ent['word']}** ({ent['entity_group']})")
 
         except Exception as e:
+
             st.error(f"Analysis failed: {e}")
