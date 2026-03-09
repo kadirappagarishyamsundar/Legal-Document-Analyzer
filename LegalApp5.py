@@ -16,21 +16,22 @@ st.set_page_config(page_title="Legal Document Analyzer", layout="wide", page_ico
 # pytesseract.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
 
 # --- LOAD ADVANCED AI ENGINES ---
+# --- LOAD ADVANCED AI ENGINES ---
 @st.cache_resource
 def load_all_engines():
-    # Explicitly define the task for BART
-    classifier = pipeline("zero-shot-classification", model="facebook/bart-large-mnli")
-    semantic_model = SentenceTransformer('all-MiniLM-L6-v2')
-    
-    # Use a try-except block to catch loading errors
+    # Load each model individually to prevent one failure from stopping all
     try:
+        classifier = pipeline("zero-shot-classification", model="facebook/bart-large-mnli")
+        semantic_model = SentenceTransformer('all-MiniLM-L6-v2')
         summarizer = pipeline("summarization", model="facebook/bart-large-cnn")
-    except Exception:
-        # Fallback if summarization task string fails
-        summarizer = pipeline(task="summarization", model="facebook/bart-large-cnn")
-        
-    ner_model = pipeline("ner", model="dbmdz/bert-large-cased-finetuned-conll03-english", aggregation_strategy="simple")
-    return classifier, semantic_model, summarizer, ner_model
+        ner_model = pipeline("ner", model="dbmdz/bert-large-cased-finetuned-conll03-english", aggregation_strategy="simple")
+        return classifier, semantic_model, summarizer, ner_model
+    except Exception as e:
+        st.error(f"Critical Engine Load Failure: {e}")
+        return None, None, None, None
+
+# Assign them at the top level so they are ALWAYS defined
+classifier, semantic_model, summarizer, ner_model = load_all_engines()
 
 # --- HELPERS ---
 def merge_fragmented_tokens(entities):
@@ -419,4 +420,5 @@ if clean_text:
         except Exception as e:
 
             st.error(f"Analysis failed: {e}")
+
 
