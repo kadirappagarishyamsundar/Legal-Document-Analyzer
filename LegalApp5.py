@@ -25,12 +25,10 @@ def load_all_engines():
         # 2. SBERT for LRI calculation
         semantic_model = SentenceTransformer('all-MiniLM-L6-v2')
         
-        # 3. SUMMARIZER: Loading via Explicit Class (Fixed for Cloud Deployment)
+        # 3. SUMMARIZER: Switched to 'text-generation' task to bypass the registry error
         sum_model_name = "facebook/bart-large-cnn"
-        sum_tokenizer = AutoTokenizer.from_pretrained(sum_model_name)
-        sum_model = AutoModelForSeq2SeqLM.from_pretrained(sum_model_name)
-        # We manually pass the model and tokenizer to the pipeline
-        summarizer = pipeline("summarization", model=sum_model, tokenizer=sum_tokenizer)
+        # We use 'text-generation' because it is explicitly allowed in your environment
+        summarizer = pipeline("text-generation", model=sum_model_name)
             
         # 4. NER Model (Remains stable)
         ner_model = pipeline("ner", model="dbmdz/bert-large-cased-finetuned-conll03-english", aggregation_strategy="simple")
@@ -39,7 +37,8 @@ def load_all_engines():
     except Exception as e:
         st.error(f"Engine Initialization Error: {e}")
         return None, None, None, None
-        # --- INITIALIZE ENGINES AT TOP LEVEL ---
+
+# IMPORTANT: YOU MUST CALL THE FUNCTION HERE
 classifier, semantic_model, summarizer, ner_model = load_all_engines()
 # --- HELPERS ---
 def merge_fragmented_tokens(entities):
@@ -428,6 +427,7 @@ if clean_text:
         except Exception as e:
 
             st.error(f"Analysis failed: {e}")
+
 
 
 
