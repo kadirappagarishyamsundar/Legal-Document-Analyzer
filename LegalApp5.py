@@ -14,30 +14,31 @@ import re
 # --- SYSTEM CONFIGURATION ---
 st.set_page_config(page_title="Legal Document Analyzer", layout="wide", page_icon="⚖️")
 # pytesseract.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
+from transformers import AutoTokenizer, AutoModelForSeq2SeqLM, pipeline
+
 @st.cache_resource
 def load_all_engines():
     try:
-        # Zero-shot classification engine [cite: 170, 212]
+        # 1. Zero-Shot Classifier (Remains stable)
         classifier = pipeline("zero-shot-classification", model="facebook/bart-large-mnli")
         
-        # Semantic SBERT model for LRI math [cite: 171, 213]
+        # 2. SBERT for LRI calculation
         semantic_model = SentenceTransformer('all-MiniLM-L6-v2')
         
-        # FIXED: Try-except fallback for the summarization task 
-        try:
-            summarizer = pipeline("summarization", model="facebook/bart-large-cnn")
-        except:
-            # Fallback to text-generation for newer library versions
-            summarizer = pipeline("text-generation", model="facebook/bart-large-cnn")
+        # 3. SUMMARIZER: Loading via Explicit Class (Fixed for Cloud Deployment)
+        sum_model_name = "facebook/bart-large-cnn"
+        sum_tokenizer = AutoTokenizer.from_pretrained(sum_model_name)
+        sum_model = AutoModelForSeq2SeqLM.from_pretrained(sum_model_name)
+        # We manually pass the model and tokenizer to the pipeline
+        summarizer = pipeline("summarization", model=sum_model, tokenizer=sum_tokenizer)
             
-        # BERT-Large for Named Entity Recognition [cite: 174, 214]
+        # 4. NER Model (Remains stable)
         ner_model = pipeline("ner", model="dbmdz/bert-large-cased-finetuned-conll03-english", aggregation_strategy="simple")
         
         return classifier, semantic_model, summarizer, ner_model
     except Exception as e:
         st.error(f"Engine Initialization Error: {e}")
         return None, None, None, None
-
 # --- HELPERS ---
 def merge_fragmented_tokens(entities):
     merged_entities = []
@@ -425,6 +426,7 @@ if clean_text:
         except Exception as e:
 
             st.error(f"Analysis failed: {e}")
+
 
 
 
