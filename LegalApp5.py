@@ -39,6 +39,8 @@ def load_all_engines():
     except Exception as e:
         st.error(f"Engine Initialization Error: {e}")
         return None, None, None, None
+        # --- INITIALIZE ENGINES AT TOP LEVEL ---
+classifier, semantic_model, summarizer, ner_model = load_all_engines()
 # --- HELPERS ---
 def merge_fragmented_tokens(entities):
     merged_entities = []
@@ -426,6 +428,7 @@ if clean_text:
         except Exception as e:
 
             st.error(f"Analysis failed: {e}")
+
 
 
 
