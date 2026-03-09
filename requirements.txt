@@ -5,6 +5,6 @@ pytesseract
 pdf2image
 python-docx
 deep-translator
-transformers
+transformers>=4.30.0
 sentence-transformers
-torch
+torch --index-url https://download.pytorch.org/whl/cpu
