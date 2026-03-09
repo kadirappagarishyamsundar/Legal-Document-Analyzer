@@ -10,6 +10,10 @@ from deep_translator import GoogleTranslator
 from transformers import pipeline
 from sentence_transformers import SentenceTransformer, util
 import re
+try:
+    from transformers import pipeline, AutoTokenizer, AutoModelForSeq2SeqLM
+except ImportError:
+    st.error("Transformers library is still installing. Please wait 30 seconds and refresh.")
 
 # --- SYSTEM CONFIGURATION ---
 st.set_page_config(page_title="Legal Document Analyzer", layout="wide", page_icon="⚖️")
@@ -427,6 +431,7 @@ if clean_text:
         except Exception as e:
 
             st.error(f"Analysis failed: {e}")
+
 
 
 
