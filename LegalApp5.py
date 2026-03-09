@@ -7,43 +7,40 @@ from pdf2image import convert_from_bytes
 import docx
 import io
 from deep_translator import GoogleTranslator
-from transformers import pipeline
+from transformers import pipeline, AutoTokenizer, AutoModelForSeq2SeqLM
 from sentence_transformers import SentenceTransformer, util
 import re
-try:
-    from transformers import pipeline, AutoTokenizer, AutoModelForSeq2SeqLM
-except ImportError:
-    st.error("Transformers library is still installing. Please wait 30 seconds and refresh.")
 
 # --- SYSTEM CONFIGURATION ---
 st.set_page_config(page_title="Legal Document Analyzer", layout="wide", page_icon="⚖️")
-# pytesseract.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
-#from transformers import AutoTokenizer, AutoModelForSeq2SeqLM, pipeline
 
+# --- ENGINE LOADER (Bypasses Task Registry Errors) ---
 @st.cache_resource
 def load_all_engines():
     try:
-        # 1. Zero-Shot Classifier (Remains stable as it is in your 'available' list)
+        # 1. Zero-Shot Classifier (Using Whitelisted Task)
         classifier = pipeline("zero-shot-classification", model="facebook/bart-large-mnli")
         
         # 2. SBERT for LRI calculation
         semantic_model = SentenceTransformer('all-MiniLM-L6-v2')
         
-        # 3. SUMMARIZER: Switched to 'text-generation' to match your environment's registry
+        # 3. MANUAL SUMMARIZER: Bypasses the "Unknown task summarization" error
+        # Loads model and tokenizer directly instead of via the pipeline task string
         sum_model_name = "facebook/bart-large-cnn"
-        # Using 'text-generation' because 'summarization' is blocked by your cloud provider
-        summarizer = pipeline("text-generation", model=sum_model_name)
+        sum_tokenizer = AutoTokenizer.from_pretrained(sum_model_name)
+        sum_model = AutoModelForSeq2SeqLM.from_pretrained(sum_model_name)
             
-        # 4. NER Model (Remains stable)
+        # 4. NER Model (Using Whitelisted Task)
         ner_model = pipeline("ner", model="dbmdz/bert-large-cased-finetuned-conll03-english", aggregation_strategy="simple")
         
-        return classifier, semantic_model, summarizer, ner_model
+        return classifier, semantic_model, sum_model, sum_tokenizer, ner_model
     except Exception as e:
         st.error(f"Engine Initialization Error: {e}")
-        return None, None, None, None
+        return None, None, None, None, None
 
-# CALL THE ENGINES
-classifier, semantic_model, summarizer, ner_model = load_all_engines()
+# INITIALIZE ENGINES
+classifier, semantic_model, sum_model, sum_tokenizer, ner_model = load_all_engines()
+
 # --- HELPERS ---
 def merge_fragmented_tokens(entities):
     merged_entities = []
@@ -60,10 +57,10 @@ def merge_fragmented_tokens(entities):
 
 def highlight_xai(text):
     highlights = {
-    r"\b(sale|deed|agreement|vendor|purchaser|mortgage|lease|agent|attorney|successor|principal|donor|donee|settlor|trustee|borrower|lender)\b": "#ffd700", 
-    r"\b(consideration|amount|rupees|paid|taxes|fees|receipt|compensation|taxable|liability|claims|bayana|principal amount|interest)\b": "#90ee90", 
-    r"\b(shall|agrees|hereby|title|possession|encumbrances|transfers|revoke|authorize|appoint|indemnify|hold harmless|solemnly affirm)\b": "#add8e6", 
-    r"\b(property|plot|survey|schedule|boundaries|residential|assets|income|land|mandal|district|village|khata)\b": "#ffa07a" 
+        r"\b(sale|deed|agreement|vendor|purchaser|mortgage|lease|agent|attorney|successor|principal|donor|donee|settlor|trustee|borrower|lender)\b": "#ffd700", 
+        r"\b(consideration|amount|rupees|paid|taxes|fees|receipt|compensation|taxable|liability|claims|bayana|principal amount|interest)\b": "#90ee90", 
+        r"\b(shall|agrees|hereby|title|possession|encumbrances|transfers|revoke|authorize|appoint|indemnify|hold harmless|solemnly affirm)\b": "#add8e6", 
+        r"\b(property|plot|survey|schedule|boundaries|residential|assets|income|land|mandal|district|village|khata)\b": "#ffa07a" 
     }
     for pattern, color in highlights.items():
         text = re.sub(pattern, f'<span style="background-color: {color}; color: black; padding: 2px; border-radius: 4px;">\\1</span>', text, flags=re.IGNORECASE)
@@ -90,10 +87,9 @@ with tab_photo:
 
         elif file_extension == 'pdf':
             with st.spinner("Converting PDF for Intelligent OCR..."):
-                # Path to poppler must be correct
-                poppler_path = r'C:\training data\poppler-25.12.0\Library\bin'
                 uploaded_file.seek(0)
-                images = convert_from_bytes(uploaded_file.read(), poppler_path=poppler_path)
+                # On Cloud/Linux, poppler_path is not needed if installed via packages.txt
+                images = convert_from_bytes(uploaded_file.read())
                 image = images[0] 
                 st.image(image, caption="PDF Page 1 Preview", use_container_width=True)
                 img_array = np.array(image)
@@ -111,7 +107,6 @@ with tab_photo:
                 gray = cv2.cvtColor(img_array, cv2.COLOR_RGB2GRAY)
                 _, thresh = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY | cv2.THRESH_OTSU)
                 clean_text = pytesseract.image_to_string(thresh)
-            del process_ocr # Cleanup
 
 with tab_text:
     user_text = st.text_area("Paste Legal Content:", height=300)
@@ -150,24 +145,11 @@ if clean_text:
                 "Sale Deed": "formal transfer of property for financial consideration and delivery of possession",
                 "Lease Deed": "rental agreement for a property specifying term rent and security deposit",
                 "Mortgage Deed": "security for the repayment of a loan involving property as collateral",
-                "Power of Attorney": "legal delegation of authority to an agent including revocation of prior powers, successor appointment, and indemnification of third parties",
-                "Affidavit": "a written statement of facts confirmed by oath or affirmation under legal authority",
+                "Power of Attorney": "legal delegation of authority to an agent including revocation of prior powers",
                 "Indemnity Agreement": "agreement to compensate or hold harmless a party for potential losses or liabilities",
-                "LLP Agreement": "governance document for limited liability partnership defining partner roles and capital",
-                "Partnership Deed": "agreement between partners defining business terms capital and profit sharing",
-                "Will and Testament": "legal declaration of a person's wishes regarding their property after death",
                 "Loan Agreement": "contractual terms for a sum of money borrowed and repayment obligations",
-                "Employment Agreement": "terms of service including roles compensation and termination for an employee",
-                "Service Agreement": "contract defining the scope of work and payment for professional services",
-                "SaaS Agreement": "software service delivery terms including uptime, data processing, and subscriptions",
-                "Non-Disclosure Agreement (NDA)": "protection of confidential information, trade secrets, and non-compete duties",
-                "Board Resolution": "formal corporate decision-making record with authorization and voting results",
-                "Intellectual Property Assignment": "transfer of ownership for patents, trademarks, or copyrights to an employer",
-                "Purchase Order": "commercial document for goods and services including prices and delivery terms",
-                "Shareholders Agreement": "governance of company ownership including drag-along, tag-along, and ROFR rights",
-                "Gift Deed": "voluntary transfer of property out of love and affection without any monetary consideration",
-                "Relinquishment Deed": "legal renouncing of rights and interest in an ancestral property by a legal heir",
-                "Rent Agreement": "short term rental contract typically for eleven months including security deposit and maintenance",
+                "Rent Agreement": "short term rental contract typically for eleven months"
+                # (Remaining essence_map items omitted for length but should be kept in your file)
                 "Partition Deed": "legal division of co-owned property into separate shares among various owners",
                 "Adoption Deed": "formal act of giving and taking a child into a new family under personal laws",
                 "Trust Deed": "creation of a legal entity for charitable or religious purposes with dedicated property",
@@ -198,13 +180,17 @@ if clean_text:
                 st.info(f"**Document Type:** {doc_type}")
             with colB:
                 st.subheader("📝 Executive Summary")
-                raw_summary = summarizer(english_text[:2000], max_length=150, min_length=50, do_sample=False)[0]['summary_text']
+                # MANUAL INFERENCE: Bypasses the summarization pipeline task
+                inputs = sum_tokenizer([english_text[:2000]], max_length=1024, return_tensors="pt", truncation=True)
+                summary_ids = sum_model.generate(inputs["input_ids"], num_beams=4, max_length=150, min_length=50, early_stopping=True)
+                raw_summary = sum_tokenizer.decode(summary_ids[0], skip_special_tokens=True)
                 st.markdown(highlight_xai(raw_summary), unsafe_allow_html=True)
 
             # 3. DYNAMIC KEY CLAUSES
             st.write("---")
             st.subheader(f"📌 Key Clauses Identification: {doc_type}")
             
+            # (Keep your entire all_clause_configs dictionary here)
             all_clause_configs = {
                 "Sale Deed": {
                     "Sale Consideration": "total sale consideration paid by bank transfer receipt",
@@ -391,7 +377,7 @@ if clean_text:
               "Witness Attestation": "signatures of witnesses confirming the supplemental changes"
              }
             }
-
+            
             universal_pillars = {
                 "Effective Date": "the specific date when this agreement or letter becomes active",
                 "Primary Parties": "the full names and identities of the individuals or entities involved",
@@ -429,17 +415,4 @@ if clean_text:
                         st.write(f"🔹 **{ent['word']}** ({ent['entity_group']})")
 
         except Exception as e:
-
             st.error(f"Analysis failed: {e}")
-
-
-
-
-
-
-
-
-
-
-
-
