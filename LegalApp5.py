@@ -19,15 +19,15 @@ st.set_page_config(page_title="Legal Document Analyzer", layout="wide", page_ico
 @st.cache_resource
 def load_all_engines():
     try:
-        # 1. Zero-Shot Classifier (Remains stable)
+        # 1. Zero-Shot Classifier (Remains stable as it is in your 'available' list)
         classifier = pipeline("zero-shot-classification", model="facebook/bart-large-mnli")
         
         # 2. SBERT for LRI calculation
         semantic_model = SentenceTransformer('all-MiniLM-L6-v2')
         
-        # 3. SUMMARIZER: Switched to 'text-generation' task to bypass the registry error
+        # 3. SUMMARIZER: Switched to 'text-generation' to match your environment's registry
         sum_model_name = "facebook/bart-large-cnn"
-        # We use 'text-generation' because it is explicitly allowed in your environment
+        # Using 'text-generation' because 'summarization' is blocked by your cloud provider
         summarizer = pipeline("text-generation", model=sum_model_name)
             
         # 4. NER Model (Remains stable)
@@ -38,7 +38,7 @@ def load_all_engines():
         st.error(f"Engine Initialization Error: {e}")
         return None, None, None, None
 
-# IMPORTANT: YOU MUST CALL THE FUNCTION HERE
+# CALL THE ENGINES
 classifier, semantic_model, summarizer, ner_model = load_all_engines()
 # --- HELPERS ---
 def merge_fragmented_tokens(entities):
@@ -427,6 +427,7 @@ if clean_text:
         except Exception as e:
 
             st.error(f"Analysis failed: {e}")
+
 
 
 
