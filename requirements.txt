@@ -1,10 +1,10 @@
 streamlit==1.35.0
-opencv-python-headless==4.9.0.80
-numpy
+opencv-python-headless
+numpy==1.26.4
 pytesseract
 pdf2image
 python-docx
 deep-translator
-transformers==4.41.2
-sentence-transformers==2.7.0
-torch==2.2.2
+transformers==4.39.3
+sentence-transformers==2.6.1
+torch
