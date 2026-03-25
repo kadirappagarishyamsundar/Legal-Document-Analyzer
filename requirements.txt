@@ -1,10 +1,11 @@
-streamlit==1.35.0
-opencv-python-headless==4.9.0.80
-numpy==1.26.4
+streamlit
+opencv-python-headless
+numpy
 pytesseract
+Pillow
 pdf2image
 python-docx
 deep-translator
-transformers==4.39.3
-sentence-transformers==2.6.1
+transformers
+sentence-transformers
 torch
